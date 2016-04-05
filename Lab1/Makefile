@@ -1,3 +1,9 @@
+# Bradford Smith (bsmith8)
+# Makefile for CS 579 Lab 1
+# 04/04/2016
+# "I pledge my honor that I have abided by the Stevens Honor System."
+################################################################################
+
 # Compiler, flags, etc.
 CC = gcc
 DEBUG = -g -O2
@@ -6,7 +12,7 @@ LDFLAGS = -Wl,-rpath,/usr/lib
 
 # Libraries against which the object file for each utility should be linked
 INCLUDES = /usr/include/
-LIBS = /usr/lib/ 
+LIBS = /usr/lib/
 DCRYPTINCLUDE = /home/nicolosi/devel/libdcrypt/include/
 DCRYPTLIB = /home/nicolosi/devel/libdcrypt/lib/
 DMALLOC = #-ldmalloc
@@ -38,6 +44,14 @@ pv_decrypt: pv_decrypt.o pv_misc.o
 	$(CC) $(DEBUG) $(WFLAGS) -o $@ $@.o pv_misc.o -L. -L$(LIBS) -L$(DCRYPTLIB) $(DCRYPT) $(DMALLOC) $(GMP)
 
 clean:
-	-rm -f core *.core *.o *~ 
+	-rm -f core *.core *.o *~
 
-.PHONY: all clean
+fclean: clean
+	-rm -f pv_encrypt pv_decrypt pv_keygen
+
+re: fclean all
+
+tar: fclean
+	tar -cvzf ../bsmith8_cs579-lab1.tar.gz ./*
+
+.PHONY: all clean fclean
