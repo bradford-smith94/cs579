@@ -1,15 +1,20 @@
+/* Bradford Smith (bsmith8)
+ * CS 579 Lab 1 pv_encrypt.c
+ * 04/08/2016
+ * "I pledge my honor that I have abided by the Stevens Honor System."
+ */
+
 #include "pv.h"
 
-void
-encrypt_file (const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
+void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
 {
-  /*************************************************************************** 
+  /***************************************************************************
    * Task: Read the content from file descriptor fin, encrypt it using raw_sk,
    *       and place the resulting ciphertext in a file named ctxt_fname.
-   *       The encryption should be CCA-secure, which is the level of 
-   *       cryptographic protection that you should always expect of any 
+   *       The encryption should be CCA-secure, which is the level of
+   *       cryptographic protection that you should always expect of any
    *       implementation of an encryption algorithm.
-   * 
+   *
    * As we have learned in class, the gold standard for encryption is
    * CCA-security. The approach that we will take in this lab is to
    * use AES in CTR-mode (AES-CTR), and then append an AES-CBC-MAC mac
@@ -26,12 +31,12 @@ encrypt_file (const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
    * piece (and hence the cryptographic strength of the encryption) is
    * specified by the constant CCA_STRENGTH in pv.h; the default is
    * 128 bits, or 16 bytes.
-   * 
+   *
    * Recall that AES works on blocks of 128 bits; in the case that the
    * length (in bytes) of the plaintext is not a multiple of 16, just
    * discard the least-significant bytes that you obtains from the
    * CTR-mode operation.
-   * 
+   *
    * Thus, the overall layout of an encrypted file will be:
    *
    *         +--------------------------+---+
@@ -45,12 +50,12 @@ encrypt_file (const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
    * notice that:
    *
    * - the length of Y (in bytes) is just 16 bytes more than the length
-   *   of the plaintext, and thus it may not be a multiple of 16; 
+   *   of the plaintext, and thus it may not be a multiple of 16;
    * - the hash value AES-CBC-MAC (K_MAC, Y) is 16-byte long;
    *
    ***************************************************************************/
 
-  /* Create the ciphertext file---the content will be encrypted, 
+  /* Create the ciphertext file---the content will be encrypted,
    * so it can be world-readable! */
 
   /* initialize the pseudorandom generator (for the IV) */
@@ -73,21 +78,19 @@ encrypt_file (const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
    * 16-byte MAC after the last chunk of the AES-CTR ciphertext */
 }
 
-void 
-usage (const char *pname)
+void usage(const char *pname)
 {
-  printf ("Personal Vault: Encryption \n");
-  printf ("Usage: %s SK-FILE PTEXT-FILE CTEXT-FILE\n", pname);
-  printf ("       Exits if either SK-FILE or PTEXT-FILE don't exist.\n");
-  printf ("       Otherwise, encrpyts the content of PTEXT-FILE under\n");
-  printf ("       sk, and place the resulting ciphertext in CTEXT-FILE.\n");
-  printf ("       If CTEXT-FILE existed, any previous content is lost.\n");
+  printf("Personal Vault: Encryption \n");
+  printf("Usage: %s SK-FILE PTEXT-FILE CTEXT-FILE\n", pname);
+  printf("       Exits if either SK-FILE or PTEXT-FILE don't exist.\n");
+  printf("       Otherwise, encrpyts the content of PTEXT-FILE under\n");
+  printf("       sk, and place the resulting ciphertext in CTEXT-FILE.\n");
+  printf("       If CTEXT-FILE existed, any previous content is lost.\n");
 
-  exit (1);
+  exit(1);
 }
 
-int 
-main (int argc, char **argv)
+int main(int argc, char **argv)
 {
   int fdsk, fdptxt;
   char *raw_sk;
@@ -97,39 +100,39 @@ main (int argc, char **argv)
 
 
   if (argc != 4) {
-    usage (argv[0]);
+    usage(argv[0]);
   }   /* Check if argv[1] and argv[2] are existing files */
-  else if (((fdsk = open (argv[1], O_RDONLY)) == -1)
-	   || ((fdptxt = open (argv[2], O_RDONLY)) == -1)) {
+  else if (((fdsk = open(argv[1], O_RDONLY)) == -1)
+       || ((fdptxt = open(argv[2], O_RDONLY)) == -1)) {
     if (errno == ENOENT) {
-      usage (argv[0]);
+      usage(argv[0]);
     }
     else {
-      perror (argv[0]);
-      
-      exit (-1);
+      perror(argv[0]);
+
+      exit(-1);
     }
   }
   else {
-    setprogname (argv[0]);
-    
+    setprogname(argv[0]);
+
     /* Import symmetric key from argv[1] */
-    if (!(import_sk_from_file (&raw_sk, &raw_len, fdsk))) {
-      printf ("%s: no symmetric key found in %s\n", argv[0], argv[1]);
-      
-      close (fdsk);
-      exit (2);
+    if (!(import_sk_from_file(&raw_sk, &raw_len, fdsk))) {
+      printf("%s: no symmetric key found in %s\n", argv[0], argv[1]);
+
+      close(fdsk);
+      exit(2);
     }
-    close (fdsk);
+    close(fdsk);
 
     /* Enough setting up---let's get to the crypto... */
-    encrypt_file (argv[3], raw_sk, raw_len, fdptxt);    
+    encrypt_file(argv[3], raw_sk, raw_len, fdptxt);
 
     /* scrub the buffer that's holding the key before exiting */
 
     /* YOUR CODE HERE */
 
-    close (fdptxt);
+    close(fdptxt);
   }
 
   return 0;
