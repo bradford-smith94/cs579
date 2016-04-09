@@ -90,7 +90,7 @@ int main(int argc, char **argv)
 
         /* now let's armor and dump to disk the symmetric key buffer */
 
-        write_skfile("key.b64", (void*)key_buf, key_len);
+        write_skfile(argv[1], (void*)key_buf, key_len);
 
         /* finally, let's scrub the buffer that held the random bits
            by overwriting with a bunch of 0's */
