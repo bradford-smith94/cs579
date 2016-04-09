@@ -14,7 +14,7 @@ void write_skfile(const char *skfname, void *raw_sk, size_t raw_sklen)
 
     /* armor the raw symmetric key in raw_sk using armor64 */
 
-    /* YOUR CODE HERE */
+    s = armor64(raw_sk, raw_sklen);
 
     /* now let's write the armored symmetric key to skfname */
 
@@ -25,7 +25,7 @@ void write_skfile(const char *skfname, void *raw_sk, size_t raw_sklen)
 
         /* scrub the buffer that's holding the key before exiting */
 
-        /* YOUR CODE HERE */
+        bzero(raw_sk, raw_sklen);
 
         exit(-1);
     }
@@ -49,7 +49,7 @@ void write_skfile(const char *skfname, void *raw_sk, size_t raw_sklen)
 
             /* scrub the buffer that's holding the key before exiting */
 
-            /* YOUR CODE HERE */
+            bzero(raw_sk, raw_sklen);
 
             exit(-1);
         }
@@ -68,7 +68,8 @@ void usage(const char *pname)
 
 int main(int argc, char **argv)
 {
-    /* YOUR CODE HERE */
+    char *key_buf = NULL;
+    size_t key_len = (size_t)CCA_STRENGTH*2;
 
     if (argc != 2)
     {
@@ -85,14 +86,16 @@ int main(int argc, char **argv)
            there are actuall *two* symmetric keys, which could, e.g., be
            stored contiguosly in a buffer */
 
-        /* YOUR CODE HERE */
+        prng_getbytes(key_buf, key_len);
 
         /* now let's armor and dump to disk the symmetric key buffer */
 
-        /* YOUR CODE HERE */
+        write_skfile("key.b64", (void*)key_buf, key_len);
 
         /* finally, let's scrub the buffer that held the random bits
            by overwriting with a bunch of 0's */
+
+        bzero(key_buf, key_len);
 
     }
 
