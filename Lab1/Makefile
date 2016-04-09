@@ -4,6 +4,18 @@
 # "I pledge my honor that I have abided by the Stevens Honor System."
 ################################################################################
 
+# Project variables
+AUTHOR = bsmith8
+PROJECT = cs579-lab1
+TARBALL = ../$(AUTHOR)_$(PROJECT).tar.gz
+RM = rm -f
+TAR = tar -cvzf
+
+# Executable names
+ENC = pv_encrypt
+DEC = pv_decrypt
+GEN = pv_keygen
+
 # Compiler, flags, etc.
 CC = gcc
 DEBUG = -g -O2
@@ -19,39 +31,52 @@ DMALLOC = #-ldmalloc
 GMP = -lgmp
 DCRYPT = -ldcrypt
 
+# group all includes and all libs into variables to make targets shorter
+ALLINCLUDES = -I. -I$(INCLUDES) -I$(DCRYPTINCLUDE)
+ALLLIBS = -L. -L$(LIBS) -L$(DCRYPTLIB)
+ALLINCLLIBS = $(DCRYPT) $(DMALLOC) $(GMP)
+
 # The source file(s) for each program
-all: pv_keygen pv_encrypt pv_decrypt
+all: $(GEN) $(ENC) $(DEC)
 
-pv_misc.o : pv_misc.c pv.h
-	$(CC) $(DEBUG) $(WFLAGS) -I. -I$(INCLUDES) -I$(DCRYPTINCLUDE) -c pv_misc.c
+pv_misc.o: pv_misc.c pv.h
+	$(CC) $(DEBUG) $(WFLAGS) $(ALLINCLUDES) -c pv_misc.c
 
-pv_keygen.o  : pv_keygen.c pv_misc.c pv.h
-	$(CC) $(DEBUG) $(WFLAGS) -I. -I$(INCLUDES) -I$(DCRYPTINCLUDE) -c pv_keygen.c pv_misc.c
+pv_keygen.o: pv_keygen.c pv_misc.c pv.h
+	$(CC) $(DEBUG) $(WFLAGS) $(ALLINCLUDES) -c pv_keygen.c pv_misc.c
 
-pv_encrypt.o : pv_encrypt.c pv_misc.c pv.h
-	$(CC) $(DEBUG) $(WFLAGS) -I. -I$(INCLUDES) -I$(DCRYPTINCLUDE) -c pv_encrypt.c pv_misc.c
+pv_encrypt.o: pv_encrypt.c pv_misc.c pv.h
+	$(CC) $(DEBUG) $(WFLAGS) $(ALLINCLUDES) -c pv_encrypt.c pv_misc.c
 
-pv_decrypt.o : pv_decrypt.c pv_misc.c pv.h
-	$(CC) $(DEBUG) $(WFLAGS) -I. -I$(INCLUDES) -I$(DCRYPTINCLUDE) -c pv_decrypt.c pv_misc.c
+pv_decrypt.o: pv_decrypt.c pv_misc.c pv.h
+	$(CC) $(DEBUG) $(WFLAGS) $(ALLINCLUDES) -c pv_decrypt.c pv_misc.c
 
 pv_keygen: pv_keygen.o pv_misc.o
-	$(CC) $(DEBUG) $(WFLAGS) -o $@ $@.o pv_misc.o -L. -L$(LIBS) -L$(DCRYPTLIB) $(DCRYPT) $(DMALLOC) $(GMP)
+	$(CC) $(DEBUG) $(WFLAGS) -o $@ $^ $(ALLLIBS) $(ALLINCLLIBS)
 
 pv_encrypt: pv_encrypt.o pv_misc.o
-	$(CC) $(DEBUG) $(WFLAGS) -o $@ $@.o pv_misc.o -L. -L$(LIBS) -L$(DCRYPTLIB) $(DCRYPT) $(DMALLOC) $(GMP)
+	$(CC) $(DEBUG) $(WFLAGS) -o $@ $^ $(ALLLIBS) $(ALLINCLLIBS)
 
 pv_decrypt: pv_decrypt.o pv_misc.o
-	$(CC) $(DEBUG) $(WFLAGS) -o $@ $@.o pv_misc.o -L. -L$(LIBS) -L$(DCRYPTLIB) $(DCRYPT) $(DMALLOC) $(GMP)
+	$(CC) $(DEBUG) $(WFLAGS) -o $@ $^ $(ALLLIBS) $(ALLINCLLIBS)
 
 clean:
-	-rm -f core *.core *.o *~
+	-$(RM) *.o
+	-$(RM) *~
+	-$(RM) core
+	-$(RM) *.core
 
+# full clean
 fclean: clean
-	-rm -f pv_encrypt pv_decrypt pv_keygen
+	-$(RM) $(ENC)
+	-$(RM) $(DEC)
+	-$(RM) $(GEN)
 
+# remake
 re: fclean all
 
+# make a tarball (for submission)
 tar: fclean
-	tar -cvzf ../bsmith8_cs579-lab1.tar.gz ./*
+	$(TAR) $(TARBALL) ./*
 
 .PHONY: all clean fclean
