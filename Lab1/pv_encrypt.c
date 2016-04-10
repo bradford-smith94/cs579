@@ -1,6 +1,6 @@
 /* Bradford Smith (bsmith8)
  * CS 579 Lab 1 pv_encrypt.c
- * 04/08/2016
+ * 04/09/2016
  * "I pledge my honor that I have abided by the Stevens Honor System."
  */
 
@@ -54,28 +54,65 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
      * - the hash value AES-CBC-MAC (K_MAC, Y) is 16-byte long;
      *
      ***************************************************************************/
+    int fdctxt = 0;
+    char *k_ctr = NULL;
+    char *k_mac = NULL;
+    char *iv = NULL;
+    char buf[CCA_STRENGTH + 1];
+    int n = 0;
 
     /* Create the ciphertext file---the content will be encrypted,
      * so it can be world-readable! */
+    if ((fdctxt = open(ctxt_fname, O_WRONLY|O_TRUNC|O_CREAT, 0644)) == -1)
+    {
+        perror(getprogname());
+
+        /* scrub the buffer that's holding the key before exiting */
+        bzero(raw_sk, raw_len);
+
+        exit(-1);
+    }
 
     /* initialize the pseudorandom generator (for the IV) */
+    ri();
 
     /* The buffer for the symmetric key actually holds two keys: */
     /* use the first key for the AES-CTR encryption ...*/
+    k_ctr = (char*)memcpy((void*)k_ctr, raw_sk, raw_len/2)
 
     /* ... and the second part for the AES-CBC-MAC */
+    k_mac = (char*)memcpy((void*)k_mac, &raw_sk[raw_len/2 - 1], raw_len/2);
 
     /* Now start processing the actual file content using symmetric encryption */
     /* Remember that CTR-mode needs a random IV (Initialization Vector) */
+    prng_getbytes(iv, CCA_STRENGTH);
+    write(fdctxt, iv, CCA_STRENGTH);
 
-    /* Compute the AES-CBC-MAC while you go */
+    /* while we haven't reached the end of the file */
+    while (!feof(fin))
+    {
+        /* read `CCA_STRENGTH` bytes at a time */
+        while ((n = read(fin, buf, CCA_STRENGTH)) != 0)
+        {
+            if (n < CCA_STRENGTH)
+            {
+                /* Don't forget to pad the last block with trailing zeroes */
 
-    /* Don't forget to pad the last block with trailing zeroes */
-
-    /* write the last chunk */
+                /* write the last chunk */
+            }
+            else
+            {
+                /* Compute the AES-CBC-MAC while you go */
+            }
+        }
+    }
 
     /* Finish up computing the AES-CBC-MAC and write the resulting
      * 16-byte MAC after the last chunk of the AES-CTR ciphertext */
+
+    bzero(k_ctr, raw_len/2);
+    bzero(k_mac, raw_len/2);
+    bzero(iv, CCA_STRENGTH);
 }
 
 void usage(const char *pname)
@@ -135,8 +172,7 @@ int main(int argc, char **argv)
         encrypt_file(argv[3], raw_sk, raw_len, fdptxt);
 
         /* scrub the buffer that's holding the key before exiting */
-
-        /* YOUR CODE HERE */
+        bzero(raw_sk, raw_len);
 
         close(fdptxt);
     }

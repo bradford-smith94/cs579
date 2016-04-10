@@ -24,7 +24,6 @@ void write_skfile(const char *skfname, void *raw_sk, size_t raw_sklen)
         free(s);
 
         /* scrub the buffer that's holding the key before exiting */
-
         bzero(raw_sk, raw_sklen);
 
         exit(-1);
@@ -85,16 +84,13 @@ int main(int argc, char **argv)
         /* Note that since we'll need to do both AES-CTR and AES-CBC-MAC,
            there are actuall *two* symmetric keys, which could, e.g., be
            stored contiguosly in a buffer */
-
         prng_getbytes(key_buf, key_len);
 
         /* now let's armor and dump to disk the symmetric key buffer */
-
         write_skfile(argv[1], (void*)key_buf, key_len);
 
         /* finally, let's scrub the buffer that held the random bits
            by overwriting with a bunch of 0's */
-
         bzero(key_buf, key_len);
 
     }
