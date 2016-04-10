@@ -58,8 +58,11 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
     char *k_ctr = NULL;
     char *k_mac = NULL;
     char *iv = NULL;
+    char *nonce = NULL;
     char buf[CCA_STRENGTH + 1];
+    unsigned int counter = 0;
     int n = 0;
+    int i = 0;
 
     /* Create the ciphertext file---the content will be encrypted,
      * so it can be world-readable! */
@@ -85,8 +88,8 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
 
     /* Now start processing the actual file content using symmetric encryption */
     /* Remember that CTR-mode needs a random IV (Initialization Vector) */
-    prng_getbytes(iv, CCA_STRENGTH);
-    write(fdctxt, iv, CCA_STRENGTH);
+    prng_getbytes(iv, CCA_STRENGTH - sizeof(counter));
+    write(fdctxt, iv, CCA_STRENGTH - sizeof(counter));
 
     /* while we haven't reached the end of the file */
     while (!feof(fin))
@@ -94,15 +97,29 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
         /* read `CCA_STRENGTH` bytes at a time */
         while ((n = read(fin, buf, CCA_STRENGTH)) != 0)
         {
+            nonce = (char*)memcpy((void*)nonce, iv, CCA_STRENGTH - sizeof(counter));
+            nonce = (char*)memcpy((void*)nonce[CCA_STRENGTH - sizeof(counter)], &(counter++), sizeof(counter));
+
             if (n < CCA_STRENGTH)
             {
                 /* Don't forget to pad the last block with trailing zeroes */
+                while (n < CCA_STRENGTH)
+                    buf[n++] = 0;
+
+                /* aes nonce and key -> output */
+
+                for (i = 0; i < CCA_STRENGTH; i++)
+                {
+                    buf[i] = buf[i] /* ^ output */;
+                }
 
                 /* write the last chunk */
+                write_chunk(fdctxt, buf, CCA_STRENGTH);
             }
             else
             {
                 /* Compute the AES-CBC-MAC while you go */
+                write_chunk(fdctxt, buf, CCA_STRENGTH);
             }
         }
     }
