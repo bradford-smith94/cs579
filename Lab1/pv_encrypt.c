@@ -1,6 +1,6 @@
 /* Bradford Smith (bsmith8)
  * CS 579 Lab 1 pv_encrypt.c
- * 04/09/2016
+ * 04/10/2016
  * "I pledge my honor that I have abided by the Stevens Honor System."
  */
 
@@ -60,9 +60,11 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
     char *iv = NULL;
     char *nonce = NULL;
     char buf[CCA_STRENGTH + 1];
+    char output[CCA_STRENGTH + 1];
     unsigned int counter = 0;
     int n = 0;
     int i = 0;
+    aes_ctx *ctx = NULL;
 
     /* Create the ciphertext file---the content will be encrypted,
      * so it can be world-readable! */
@@ -81,46 +83,68 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
 
     /* The buffer for the symmetric key actually holds two keys: */
     /* use the first key for the AES-CTR encryption ...*/
-    k_ctr = (char*)memcpy((void*)k_ctr, raw_sk, raw_len/2)
+    k_ctr = (char*)memcpy((void*)k_ctr, raw_sk, raw_len/2);
+    aes_setkey(ctx, k_ctr, raw_len/2);
 
     /* ... and the second part for the AES-CBC-MAC */
-    k_mac = (char*)memcpy((void*)k_mac, &raw_sk[raw_len/2 - 1], raw_len/2);
+    raw_sk = raw_sk + (raw_len/2) - 1;
+    k_mac = (char*)memcpy((void*)k_mac, raw_sk, raw_len/2);
 
     /* Now start processing the actual file content using symmetric encryption */
     /* Remember that CTR-mode needs a random IV (Initialization Vector) */
     prng_getbytes(iv, CCA_STRENGTH - sizeof(counter));
-    write(fdctxt, iv, CCA_STRENGTH - sizeof(counter));
-
-    /* while we haven't reached the end of the file */
-    while (!feof(fin))
+    if ((n = write(fdctxt, iv, CCA_STRENGTH - sizeof(counter))) == -1)
     {
-        /* read `CCA_STRENGTH` bytes at a time */
-        while ((n = read(fin, buf, CCA_STRENGTH)) != 0)
+        perror(getprogname());
+
+        bzero(k_ctr, raw_len/2);
+        bzero(k_mac, raw_len/2);
+        bzero(iv, CCA_STRENGTH);
+
+        exit(-1);
+    }
+
+    /* read `CCA_STRENGTH` bytes at a time */
+    while ((n = read(fin, buf, CCA_STRENGTH)) != 0)
+    {
+        nonce = (char*)memcpy((void*)nonce, iv, CCA_STRENGTH - sizeof(counter));
+        nonce = (char*)memcpy((void*)&nonce[CCA_STRENGTH - sizeof(counter)], (void*)&counter, sizeof(counter));
+        counter++;
+
+        if (n <= 0)
         {
-            nonce = (char*)memcpy((void*)nonce, iv, CCA_STRENGTH - sizeof(counter));
-            nonce = (char*)memcpy((void*)nonce[CCA_STRENGTH - sizeof(counter)], &(counter++), sizeof(counter));
+            /* we reached the end of the file */
+            break;
+        }
+        else if (n < CCA_STRENGTH)
+        {
+            /* Don't forget to pad the last block with trailing zeroes */
+            while (n < CCA_STRENGTH)
+                buf[n++] = 0;
 
-            if (n < CCA_STRENGTH)
+            /* aes nonce and key -> output */
+            aes_encrypt(ctx, output, nonce);
+
+            for (i = 0; i < CCA_STRENGTH; i++)
             {
-                /* Don't forget to pad the last block with trailing zeroes */
-                while (n < CCA_STRENGTH)
-                    buf[n++] = 0;
-
-                /* aes nonce and key -> output */
-
-                for (i = 0; i < CCA_STRENGTH; i++)
-                {
-                    buf[i] = buf[i] /* ^ output */;
-                }
-
-                /* write the last chunk */
-                write_chunk(fdctxt, buf, CCA_STRENGTH);
+                buf[i] = buf[i] ^ output[i];
             }
-            else
+
+            /* write the last chunk */
+            write_chunk(fdctxt, buf, CCA_STRENGTH);
+        }
+        else
+        {
+            /* aes nonce and key -> output */
+            aes_encrypt(ctx, output, nonce);
+
+            for (i = 0; i < CCA_STRENGTH; i++)
             {
-                /* Compute the AES-CBC-MAC while you go */
-                write_chunk(fdctxt, buf, CCA_STRENGTH);
+                buf[i] = buf[i] ^ output[i];
             }
+
+            /* Compute the AES-CBC-MAC while you go */
+            write_chunk(fdctxt, buf, CCA_STRENGTH);
         }
     }
 
