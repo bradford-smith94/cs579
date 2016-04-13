@@ -185,9 +185,6 @@ int main(int argc, char **argv)
     char *raw_sk;
     size_t raw_len;
 
-    /* YOUR CODE HERE */
-
-
     if (argc != 4)
     {
         usage(argv[0]);

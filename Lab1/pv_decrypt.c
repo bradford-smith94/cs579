@@ -1,6 +1,6 @@
 /* Bradford Smith (bsmith8)
  * CS 579 Lab 1 pv_decrypt.c
- * 04/08/2016
+ * 04/13/2016
  * "I pledge my honor that I have abided by the Stevens Honor System."
  */
 
@@ -35,16 +35,56 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
      * how to finish reading the last bytes of the ciphertext.
      *
      */
+    int fdptxt = 0;
+    char *k_ctr = NULL;
+    char *k_mac = NULL;
+    char *k_mac_b = NULL;
+    char *k_mac_e = NULL;
+    char *iv = NULL;
+    char mac[CCA_STRENGTH];
+    char buf[CCA_STRENGTH + 1];
+    char output[CCA_STRENGTH + 1];
+    const char body[16] = {'b', 'o', 'd', 'y', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    const char end[16] = {'e', 'n', 'd', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    unsigned int counter = 0;
+    int n = 0;
+    int i = 0;
+    aes_ctx *ctx = NULL;
 
     /* use the first part of the symmetric key for the AES-CTR decryption ...*/
+    k_ctr = (char*)memcpy((void*)k_ctr, raw_sk, raw_len/2);
+
     /* ... and the second for the AES-CBC-MAC */
+    raw_sk = raw_sk + (raw_len/2) - 1;
+    k_mac = (char*)memcpy((void*)k_mac, raw_sk, raw_len/2);
+    aes_setkey(ctx, k_mac, raw_len/2);
+    aes_encrypt(ctx, k_mac_b, body);
+    aes_encrypt(ctx, k_mac_e, end);
 
     /* Reading Y */
     /* First, read the IV (Initialization Vector) */
+    if ((n = read(fin, iv, CCA_STRENGTH)) <= 0)
+    {
+        perror(getprogname());
+
+        /* scrub the buffer that's holding the key before exiting */
+        bzero(raw_sk, raw_len);
+
+        exit(-1);
+    }
 
     /* compute the AES-CBC-MAC as you go */
 
     /* Create plaintext file---may be confidential info, so permission is 0600 */
+    if ((fdptxt = open(ptxt_fname, O_WRONLY|O_TRUNC|O_CREAT, 0600)) == -1)
+    {
+        perror(getprogname());
+
+        /* scrub the buffer that's holding the key before exiting */
+        bzero(raw_sk, raw_len);
+
+        exit(-1);
+    }
 
     /* CTR-mode decryption */
 
@@ -135,8 +175,7 @@ int main(int argc, char **argv)
         decrypt_file(argv[3], sk, sk_len, fdctxt);
 
         /* scrub the buffer that's holding the key before exiting */
-
-        /* YOUR CODE HERE */
+        bzero(sk, sk_len);
 
         close(fdctxt);
     }
