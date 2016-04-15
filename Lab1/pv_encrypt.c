@@ -109,6 +109,8 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
 
         bzero(k_ctr, raw_len/2);
         bzero(k_mac, raw_len/2);
+        bzero(k_mac_b, CCA_STRENGTH);
+        bzero(k_mac_e, CCA_STRENGTH);
         bzero(iv, CCA_STRENGTH);
 
         exit(-1);
@@ -164,6 +166,8 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
 
     bzero(k_ctr, raw_len/2);
     bzero(k_mac, raw_len/2);
+    bzero(k_mac_b, CCA_STRENGTH);
+    bzero(k_mac_e, CCA_STRENGTH);
     bzero(iv, CCA_STRENGTH);
 }
 

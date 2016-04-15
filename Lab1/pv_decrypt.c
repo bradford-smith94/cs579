@@ -1,6 +1,6 @@
 /* Bradford Smith (bsmith8)
  * CS 579 Lab 1 pv_decrypt.c
- * 04/13/2016
+ * 04/15/2016
  * "I pledge my honor that I have abided by the Stevens Honor System."
  */
 
@@ -40,9 +40,9 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
     char *k_mac = NULL;
     char *k_mac_b = NULL;
     char *k_mac_e = NULL;
-    char *iv = NULL;
+    char iv[CCA_STRENGTH];
     char mac[CCA_STRENGTH];
-    char buf[CCA_STRENGTH + 1];
+    char buf[2 * CCA_STRENGTH + 1];
     char output[CCA_STRENGTH + 1];
     const char body[16] = {'b', 'o', 'd', 'y', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     const char end[16] = {'e', 'n', 'd', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -50,6 +50,17 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
     int n = 0;
     int i = 0;
     aes_ctx *ctx = NULL;
+
+    /* Create plaintext file---may be confidential info, so permission is 0600 */
+    if ((fdptxt = open(ptxt_fname, O_WRONLY|O_TRUNC|O_CREAT, 0600)) == -1)
+    {
+        perror(getprogname());
+
+        /* scrub the buffer that's holding the key before exiting */
+        bzero(raw_sk, raw_len);
+
+        exit(-1);
+    }
 
     /* use the first part of the symmetric key for the AES-CTR decryption ...*/
     k_ctr = (char*)memcpy((void*)k_ctr, raw_sk, raw_len/2);
@@ -60,6 +71,9 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
     aes_setkey(ctx, k_mac, raw_len/2);
     aes_encrypt(ctx, k_mac_b, body);
     aes_encrypt(ctx, k_mac_e, end);
+
+    /* mac starts at zero */
+    bzero(mac, CCA_STRENGTH);
 
     /* Reading Y */
     /* First, read the IV (Initialization Vector) */
@@ -73,49 +87,77 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
         exit(-1);
     }
 
-    /* compute the AES-CBC-MAC as you go */
-
-    /* Create plaintext file---may be confidential info, so permission is 0600 */
-    if ((fdptxt = open(ptxt_fname, O_WRONLY|O_TRUNC|O_CREAT, 0600)) == -1)
+    /* try to read 2 * `CCA_STRENGTH` bytes at a time */
+    while ((n = read(fin, buf, 2 * CCA_STRENGTH)) != 0)
     {
-        perror(getprogname());
+        nonce = (char*)memcpy((void*)nonce, iv, CCA_STRENGTH - 8);
+        puthyper((void*)&nonce[CCA_STRENGTH - 8], counter);
+        /*
+        nonce = (char*)memcpy((void*)&nonce[CCA_STRENGTH - sizeof(counter)], (void*)&counter, sizeof(counter));
+        */
+        counter++;
 
-        /* scrub the buffer that's holding the key before exiting */
-        bzero(raw_sk, raw_len);
+        /* CTR-mode decryption */
 
-        exit(-1);
+        if (n <= 0)
+        {
+            /* we reached the end of the file */
+            break;
+        }
+        else if (n == CCA_STRENGTH)
+        {
+            /* If this is the last block and its length is less than
+             * aes_blocklen, remember to chop off the least-significant bytes
+             * output by AES.
+             */
+
+            /* now we can finish computing the AES-CBC-MAC */
+
+
+            /* compare the AES-CBC-MAC we computed with the value read from
+               fin */
+
+            /* NB: if the AES-CBC-MAC value stored in the ciphertext file does
+             * not match what we just computed, destroy the whole plaintext
+             * file! That means that somebody tampered with the ciphertext file,
+             * and you should not decrypt it.  Otherwise, the CCA-security is
+             * gone.
+             */
+        }
+
+        /* aes nonce and key -> output */
+        aes_setkey(ctx, k_ctr, raw_len/2);
+        aes_encrypt(ctx, output, nonce);
+
+        for (i = 0; i < CCA_STRENGTH; i++)
+        {
+            /* Compute the AES-CBC-MAC while you go */
+            mac[i] = mac[i] ^ buf[i];
+            buf[i] = buf[i] ^ output[i];
+        }
+
+        /* Recall that we are reading aes_blocklen + 1 bytes ahead: now that
+         * we just consumed aes_blocklen bytes from the front of the buffer, let's
+         * shift the remaining aes_blocklen + 1 bytes by aes_blocklen bytes
+         */
+        fseek(fin, CCA_STRENGTH * -1, SEEK_CUR);
+
+        /* write the decrypted chunk to the plaintext file */
+        write_chunk(fdptxt, buf, CCA_STRENGTH);
     }
-
-    /* CTR-mode decryption */
-
-    /* If this is the last block and its length is less than
-     * aes_blocklen, remember to chop off the least-significant bytes
-     * output by AES.
-     */
-
-    /* Recall that we are reading aes_blocklen + 1 bytes ahead: now that
-     * we just consumed aes_blocklen bytes from the front of the buffer, let's
-     * shift the remaining aes_blocklen + 1 bytes by aes_blocklen bytes
-     */
-
-    /* write the decrypted chunk to the plaintext file */
-
-    /* now we can finish computing the AES-CBC-MAC */
-
-    /* compare the AES-CBC-MAC we computed with the value read from
-       fin */
-
-    /* NB: if the AES-CBC-MAC value stored in the ciphertext file does
-     * not match what we just computed, destroy the whole plaintext
-     * file! That means that somebody tampered with the ciphertext file,
-     * and you should not decrypt it.  Otherwise, the CCA-security is
-     * gone.
-     */
 
     /* write the last chunk of plaintext---remember that it may be
      *  shorter than aes_blocklen
      */
+    write_chunk(fdptxt, buf, n);
 
+    close(fdptxt);
+
+    bzero(k_ctr, raw_len/2);
+    bzero(k_mac, raw_len/2);
+    bzero(k_mac_b, CCA_STRENGTH);
+    bzero(k_mac_e, CCA_STRENGTH);
+    bzero(iv, CCA_STRENGTH);
 }
 
 void usage(const char *pname)
