@@ -87,8 +87,8 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
         exit(-1);
     }
 
-    /* try to read 2 * `CCA_STRENGTH` bytes at a time */
-    while ((n = read(fin, buf, 2 * CCA_STRENGTH)) != 0)
+    /* try to read 2 * `CCA_STRENGTH` + 1 bytes at a time */
+    while ((n = read(fin, buf, 2 * CCA_STRENGTH + 1)) != 0)
     {
         nonce = (char*)memcpy((void*)nonce, iv, CCA_STRENGTH - 8);
         puthyper((void*)&nonce[CCA_STRENGTH - 8], counter);
@@ -104,46 +104,85 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
             /* we reached the end of the file */
             break;
         }
-        else if (n == CCA_STRENGTH)
+        else if (n < 2 * CCA_STRENGTH + 1)
         {
+            /* aes nonce and key -> output */
+            aes_setkey(ctx, k_ctr, raw_len/2);
+            aes_encrypt(ctx, output, nonce);
+
+            for (i = 0; i < CCA_STRENGTH; i++)
+            {
+                /* Compute the AES-CBC-MAC while you go */
+                mac[i] = mac[i] ^ buf[i];
+                buf[i] = buf[i] ^ output[i];
+            }
+
             /* If this is the last block and its length is less than
              * aes_blocklen, remember to chop off the least-significant bytes
              * output by AES.
              */
+            for (i = 0; i < CCA_STRENGTH; i++)
+                if (buf[i] == 0)
+                    break;
+            write_chunk(fdptxt, buf, i + 1);
 
             /* now we can finish computing the AES-CBC-MAC */
+            aes_setkey(ctx, k_mac_e, CCA_STRENGTH);
+            aes_encrypt(ctx, mac, mac);
 
 
             /* compare the AES-CBC-MAC we computed with the value read from
                fin */
-
-            /* NB: if the AES-CBC-MAC value stored in the ciphertext file does
-             * not match what we just computed, destroy the whole plaintext
-             * file! That means that somebody tampered with the ciphertext file,
-             * and you should not decrypt it.  Otherwise, the CCA-security is
-             * gone.
-             */
+            for (i = 0; i < CCA_STRENGTH; i++)
+            {
+                if (mac[i] != buf[i + CCA_STRENGTH])
+                {
+                    /* NB: if the AES-CBC-MAC value stored in the ciphertext file does
+                     * not match what we just computed, destroy the whole plaintext
+                     * file! That means that somebody tampered with the ciphertext file,
+                     * and you should not decrypt it.  Otherwise, the CCA-security is
+                     * gone.
+                     */
+                    fseek(fdptxt, SEEK_SET, SEEK_CUR);
+                    bzero(buf, CCA_STRENGTH);
+                    for (n = 0; n <= counter; n++)
+                        write_chunk(fdptxt, buf, CCA_STRENGTH);
+                }
+            }
         }
-
-        /* aes nonce and key -> output */
-        aes_setkey(ctx, k_ctr, raw_len/2);
-        aes_encrypt(ctx, output, nonce);
-
-        for (i = 0; i < CCA_STRENGTH; i++)
+        else
         {
-            /* Compute the AES-CBC-MAC while you go */
-            mac[i] = mac[i] ^ buf[i];
-            buf[i] = buf[i] ^ output[i];
+            /* aes nonce and key -> output */
+            aes_setkey(ctx, k_ctr, raw_len/2);
+            aes_encrypt(ctx, output, nonce);
+
+            for (i = 0; i < CCA_STRENGTH; i++)
+            {
+                /* Compute the AES-CBC-MAC while you go */
+                mac[i] = mac[i] ^ buf[i];
+                buf[i] = buf[i] ^ output[i];
+            }
+
+            aes_setkey(ctx, k_mac_b, CCA_STRENGTH);
+            aes_encrypt(ctx, mac, mac);
+
+            /* Recall that we are reading aes_blocklen + 1 bytes ahead: now that
+             * we just consumed aes_blocklen bytes from the front of the buffer, let's
+             * shift the remaining aes_blocklen + 1 bytes by aes_blocklen bytes
+             */
+            if ((n = fseek(fin, (CCA_STRENGTH + 1) * -1, SEEK_CUR)) != 0)
+            {
+                perror(getprogname());
+
+                /* scrub the buffer that's holding the key before exiting */
+                bzero(raw_sk, raw_len);
+
+                exit(-1);
+            }
+
+            /* write the decrypted chunk to the plaintext file */
+            write_chunk(fdptxt, buf, CCA_STRENGTH);
         }
-
-        /* Recall that we are reading aes_blocklen + 1 bytes ahead: now that
-         * we just consumed aes_blocklen bytes from the front of the buffer, let's
-         * shift the remaining aes_blocklen + 1 bytes by aes_blocklen bytes
-         */
-        fseek(fin, CCA_STRENGTH * -1, SEEK_CUR);
-
-        /* write the decrypted chunk to the plaintext file */
-        write_chunk(fdptxt, buf, CCA_STRENGTH);
     }
 
     /* write the last chunk of plaintext---remember that it may be
