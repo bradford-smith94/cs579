@@ -166,20 +166,16 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
             aes_setkey(&ctx, k_ctr, raw_len/2);
             aes_encrypt(&ctx, output, nonce);
 
-            for (i = 0; i < CCA_STRENGTH; i++)
+            /* If this is the last block and its length is less than
+             * aes_blocklen, remember to chop off the least-significant bytes
+             * output by AES.
+             */
+            for (i = 0; i < n - CCA_STRENGTH; i++)
             {
                 /* Compute the AES-CBC-MAC while you go */
                 mac[i] = mac[i] ^ buf[i];
                 buf[i] = buf[i] ^ output[i];
             }
-
-            /* If this is the last block and its length is less than
-             * aes_blocklen, remember to chop off the least-significant bytes
-             * output by AES.
-             */
-            for (i = 0; i < CCA_STRENGTH; i++)
-                if (buf[i] == 0)
-                    break;
 
             /* write the last chunk of plaintext---remember that it may be
              *  shorter than aes_blocklen
@@ -187,15 +183,18 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
             write_chunk(fdptxt, buf, i);
 
             /* now we can finish computing the AES-CBC-MAC */
+            for (; i < CCA_STRENGTH; i++)
+                mac[i] = mac[i] ^ 0;
+
             aes_setkey(&ctx, k_mac_e, CCA_STRENGTH);
             aes_encrypt(&ctx, mac, mac);
 
 
             /* compare the AES-CBC-MAC we computed with the value read from
                fin */
-            for (i = 0; i < CCA_STRENGTH; i++)
+            for (i = n - CCA_STRENGTH; i < n; i++)
             {
-                if (mac[i] != buf[i + CCA_STRENGTH])
+                if (mac[i] != buf[i])
                 {
                     printf("%s: decryption error\n", getprogname());
                     /* NB: if the AES-CBC-MAC value stored in the ciphertext
