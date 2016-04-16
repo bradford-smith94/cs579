@@ -1,6 +1,6 @@
 /* Bradford Smith (bsmith8)
  * CS 579 Lab 1 pv_keygen.c
- * 04/08/2016
+ * 04/15/2016
  * "I pledge my honor that I have abided by the Stevens Honor System."
  */
 
@@ -67,8 +67,8 @@ void usage(const char *pname)
 
 int main(int argc, char **argv)
 {
-    char *key_buf = NULL;
-    size_t key_len = (size_t)CCA_STRENGTH*2;
+    char key_buf[CCA_STRENGTH * 2];
+    size_t key_len = (size_t)CCA_STRENGTH * 2;
 
     if (argc != 2)
     {

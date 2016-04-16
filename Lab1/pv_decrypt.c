@@ -41,6 +41,7 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
     char *k_mac_b = NULL;
     char *k_mac_e = NULL;
     char iv[CCA_STRENGTH];
+    char *nonce = NULL;
     char mac[CCA_STRENGTH];
     char buf[2 * CCA_STRENGTH + 1];
     char output[CCA_STRENGTH + 1];
@@ -143,9 +144,9 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
                      * and you should not decrypt it.  Otherwise, the CCA-security is
                      * gone.
                      */
-                    fseek(fdptxt, SEEK_SET, SEEK_CUR);
+                    lseek(fdptxt, SEEK_SET, SEEK_CUR);
                     bzero(buf, CCA_STRENGTH);
-                    for (n = 0; n <= counter; n++)
+                    for (; counter > 0; counter--);
                         write_chunk(fdptxt, buf, CCA_STRENGTH);
                 }
             }
@@ -170,7 +171,7 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
              * we just consumed aes_blocklen bytes from the front of the buffer, let's
              * shift the remaining aes_blocklen + 1 bytes by aes_blocklen bytes
              */
-            if ((n = fseek(fin, (CCA_STRENGTH + 1) * -1, SEEK_CUR)) != 0)
+            if ((n = lseek(fin, (CCA_STRENGTH + 1) * -1, SEEK_CUR)) != 0)
             {
                 perror(getprogname());
 
