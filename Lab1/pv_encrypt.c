@@ -91,7 +91,7 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
     memcpy((void*)k_ctr, raw_sk, raw_len/2);
 
     /* ... and the second part for the AES-CBC-MAC */
-    raw_sk = raw_sk + (raw_len/2) - 1;
+    raw_sk = raw_sk + (raw_len/2);
     memcpy((void*)k_mac, raw_sk, raw_len/2);
 
     aes_setkey(&ctx, k_mac, raw_len/2);
