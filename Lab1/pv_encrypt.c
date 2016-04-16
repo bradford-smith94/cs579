@@ -1,6 +1,6 @@
 /* Bradford Smith (bsmith8)
  * CS 579 Lab 1 pv_encrypt.c
- * 04/15/2016
+ * 04/16/2016
  * "I pledge my honor that I have abided by the Stevens Honor System."
  */
 
@@ -64,15 +64,17 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
     char mac[CCA_STRENGTH];
     char buf[CCA_STRENGTH + 1];
     char output[CCA_STRENGTH + 1];
-    const char body[16] = {'b', 'o', 'd', 'y', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    const char end[16] = {'e', 'n', 'd', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    const char body[16] = {'b', 'o', 'd', 'y',
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    const char end[16] = {'e', 'n', 'd',
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     unsigned int counter = 0;
     int n = 0;
     int i = 0;
     aes_ctx ctx;
 
-    /* Create the ciphertext file---the content will be encrypted,
-     * so it can be world-readable! */
+    /* Create the ciphertext file
+     * the content will be encrypted, so it can be world-readable! */
     if ((fdctxt = open(ctxt_fname, O_WRONLY|O_TRUNC|O_CREAT, 0644)) == -1)
     {
         perror(getprogname());
@@ -103,11 +105,12 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
 
     /* Now start processing the actual file content using symmetric encryption */
     /* Remember that CTR-mode needs a random IV (Initialization Vector) */
-    prng_getbytes(iv, CCA_STRENGTH - 8);
-    if ((n = write(fdctxt, iv, CCA_STRENGTH - 8)) == -1)
+    prng_getbytes(iv, CCA_STRENGTH);
+    if ((n = write(fdctxt, iv, CCA_STRENGTH)) == -1)
     {
         perror(getprogname());
 
+        bzero(raw_sk, raw_len);
         bzero(k_ctr, raw_len/2);
         bzero(k_mac, raw_len/2);
         bzero(k_mac_b, CCA_STRENGTH);
@@ -120,23 +123,30 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
     /* read `CCA_STRENGTH` bytes at a time */
     while ((n = read(fin, buf, CCA_STRENGTH)) != 0)
     {
+        /* use the first 8 bytes of iv concatenated with the counter */
         memcpy((void*)nonce, iv, CCA_STRENGTH - 8);
         puthyper((void*)&nonce[CCA_STRENGTH - 8], counter);
-        /*
-        nonce = (char*)memcpy((void*)&nonce[CCA_STRENGTH - sizeof(counter)], (void*)&counter, sizeof(counter));
-        */
         counter++;
 
-        if (n <= 0)
+        if (n < 0)
         {
-            /* we reached the end of the file */
-            break;
+            perror(getprogname());
+
+            bzero(raw_sk, raw_len);
+            bzero(k_ctr, raw_len/2);
+            bzero(k_mac, raw_len/2);
+            bzero(k_mac_b, CCA_STRENGTH);
+            bzero(k_mac_e, CCA_STRENGTH);
+            bzero(iv, CCA_STRENGTH);
+
+            exit(-1);
         }
         else if (n < CCA_STRENGTH)
         {
             /* Don't forget to pad the last block with trailing zeroes */
-            while (n < CCA_STRENGTH)
-                buf[n++] = 0;
+            i = n;
+            while (i < CCA_STRENGTH)
+                buf[i++] = 0;
         }
 
         /* aes nonce and key -> output */
@@ -153,7 +163,8 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
         aes_setkey(&ctx, k_mac_b, CCA_STRENGTH);
         aes_encrypt(&ctx, mac, mac);
 
-        write_chunk(fdctxt, buf, CCA_STRENGTH);
+        /* write `n` bytes in case this is the last chunk */
+        write_chunk(fdctxt, buf, n);
     }
 
     /* Finish up computing the AES-CBC-MAC and write the resulting
