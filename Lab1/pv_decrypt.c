@@ -36,12 +36,12 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
      *
      */
     int fdptxt = 0;
-    char *k_ctr = NULL;
-    char *k_mac = NULL;
-    char *k_mac_b = NULL;
-    char *k_mac_e = NULL;
+    char k_ctr[CCA_STRENGTH];
+    char k_mac[CCA_STRENGTH];
+    char k_mac_b[CCA_STRENGTH];
+    char k_mac_e[CCA_STRENGTH];
     char iv[CCA_STRENGTH];
-    char *nonce = NULL;
+    char nonce[CCA_STRENGTH];
     char mac[CCA_STRENGTH];
     char buf[2 * CCA_STRENGTH + 1];
     char output[CCA_STRENGTH + 1];
@@ -50,7 +50,7 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
     unsigned int counter = 0;
     int n = 0;
     int i = 0;
-    aes_ctx *ctx = NULL;
+    aes_ctx ctx;
 
     /* Create plaintext file---may be confidential info, so permission is 0600 */
     if ((fdptxt = open(ptxt_fname, O_WRONLY|O_TRUNC|O_CREAT, 0600)) == -1)
@@ -64,14 +64,15 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
     }
 
     /* use the first part of the symmetric key for the AES-CTR decryption ...*/
-    k_ctr = (char*)memcpy((void*)k_ctr, raw_sk, raw_len/2);
+    memcpy((void*)k_ctr, raw_sk, raw_len/2);
 
     /* ... and the second for the AES-CBC-MAC */
     raw_sk = raw_sk + (raw_len/2) - 1;
-    k_mac = (char*)memcpy((void*)k_mac, raw_sk, raw_len/2);
-    aes_setkey(ctx, k_mac, raw_len/2);
-    aes_encrypt(ctx, k_mac_b, body);
-    aes_encrypt(ctx, k_mac_e, end);
+    memcpy((void*)k_mac, raw_sk, raw_len/2);
+
+    aes_setkey(&ctx, k_mac, raw_len/2);
+    aes_encrypt(&ctx, k_mac_b, body);
+    aes_encrypt(&ctx, k_mac_e, end);
 
     /* mac starts at zero */
     bzero(mac, CCA_STRENGTH);
@@ -91,7 +92,7 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
     /* try to read 2 * `CCA_STRENGTH` + 1 bytes at a time */
     while ((n = read(fin, buf, 2 * CCA_STRENGTH + 1)) != 0)
     {
-        nonce = (char*)memcpy((void*)nonce, iv, CCA_STRENGTH - 8);
+        memcpy((void*)nonce, iv, CCA_STRENGTH - 8);
         puthyper((void*)&nonce[CCA_STRENGTH - 8], counter);
         /*
         nonce = (char*)memcpy((void*)&nonce[CCA_STRENGTH - sizeof(counter)], (void*)&counter, sizeof(counter));
@@ -108,8 +109,8 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
         else if (n < 2 * CCA_STRENGTH + 1)
         {
             /* aes nonce and key -> output */
-            aes_setkey(ctx, k_ctr, raw_len/2);
-            aes_encrypt(ctx, output, nonce);
+            aes_setkey(&ctx, k_ctr, raw_len/2);
+            aes_encrypt(&ctx, output, nonce);
 
             for (i = 0; i < CCA_STRENGTH; i++)
             {
@@ -128,8 +129,8 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
             write_chunk(fdptxt, buf, i + 1);
 
             /* now we can finish computing the AES-CBC-MAC */
-            aes_setkey(ctx, k_mac_e, CCA_STRENGTH);
-            aes_encrypt(ctx, mac, mac);
+            aes_setkey(&ctx, k_mac_e, CCA_STRENGTH);
+            aes_encrypt(&ctx, mac, mac);
 
 
             /* compare the AES-CBC-MAC we computed with the value read from
@@ -154,8 +155,8 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
         else
         {
             /* aes nonce and key -> output */
-            aes_setkey(ctx, k_ctr, raw_len/2);
-            aes_encrypt(ctx, output, nonce);
+            aes_setkey(&ctx, k_ctr, raw_len/2);
+            aes_encrypt(&ctx, output, nonce);
 
             for (i = 0; i < CCA_STRENGTH; i++)
             {
@@ -164,8 +165,8 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
                 buf[i] = buf[i] ^ output[i];
             }
 
-            aes_setkey(ctx, k_mac_b, CCA_STRENGTH);
-            aes_encrypt(ctx, mac, mac);
+            aes_setkey(&ctx, k_mac_b, CCA_STRENGTH);
+            aes_encrypt(&ctx, mac, mac);
 
             /* Recall that we are reading aes_blocklen + 1 bytes ahead: now that
              * we just consumed aes_blocklen bytes from the front of the buffer, let's

@@ -55,12 +55,12 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
      *
      ***************************************************************************/
     int fdctxt = 0;
-    char *k_ctr = NULL;
-    char *k_mac = NULL;
-    char *k_mac_b = NULL;
-    char *k_mac_e = NULL;
-    char *iv = NULL;
-    char *nonce = NULL;
+    char k_ctr[CCA_STRENGTH];
+    char k_mac[CCA_STRENGTH];
+    char k_mac_b[CCA_STRENGTH];
+    char k_mac_e[CCA_STRENGTH];
+    char iv[CCA_STRENGTH];
+    char nonce[CCA_STRENGTH];
     char mac[CCA_STRENGTH];
     char buf[CCA_STRENGTH + 1];
     char output[CCA_STRENGTH + 1];
@@ -69,7 +69,7 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
     unsigned int counter = 0;
     int n = 0;
     int i = 0;
-    aes_ctx *ctx = NULL;
+    aes_ctx ctx;
 
     /* Create the ciphertext file---the content will be encrypted,
      * so it can be world-readable! */
@@ -88,22 +88,23 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
 
     /* The buffer for the symmetric key actually holds two keys: */
     /* use the first key for the AES-CTR encryption ...*/
-    k_ctr = (char*)memcpy((void*)k_ctr, raw_sk, raw_len/2);
+    memcpy((void*)k_ctr, raw_sk, raw_len/2);
 
     /* ... and the second part for the AES-CBC-MAC */
     raw_sk = raw_sk + (raw_len/2) - 1;
-    k_mac = (char*)memcpy((void*)k_mac, raw_sk, raw_len/2);
-    aes_setkey(ctx, k_mac, raw_len/2);
-    aes_encrypt(ctx, k_mac_b, body);
-    aes_encrypt(ctx, k_mac_e, end);
+    memcpy((void*)k_mac, raw_sk, raw_len/2);
+
+    aes_setkey(&ctx, k_mac, raw_len/2);
+    aes_encrypt(&ctx, k_mac_b, body);
+    aes_encrypt(&ctx, k_mac_e, end);
 
     /* mac starts at zero */
     bzero(mac, CCA_STRENGTH);
 
     /* Now start processing the actual file content using symmetric encryption */
     /* Remember that CTR-mode needs a random IV (Initialization Vector) */
-    prng_getbytes(iv, CCA_STRENGTH - sizeof(counter));
-    if ((n = write(fdctxt, iv, CCA_STRENGTH - sizeof(counter))) == -1)
+    prng_getbytes(iv, CCA_STRENGTH - 8);
+    if ((n = write(fdctxt, iv, CCA_STRENGTH - 8)) == -1)
     {
         perror(getprogname());
 
@@ -119,7 +120,7 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
     /* read `CCA_STRENGTH` bytes at a time */
     while ((n = read(fin, buf, CCA_STRENGTH)) != 0)
     {
-        nonce = (char*)memcpy((void*)nonce, iv, CCA_STRENGTH - 8);
+        memcpy((void*)nonce, iv, CCA_STRENGTH - 8);
         puthyper((void*)&nonce[CCA_STRENGTH - 8], counter);
         /*
         nonce = (char*)memcpy((void*)&nonce[CCA_STRENGTH - sizeof(counter)], (void*)&counter, sizeof(counter));
@@ -139,8 +140,8 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
         }
 
         /* aes nonce and key -> output */
-        aes_setkey(ctx, k_ctr, raw_len/2);
-        aes_encrypt(ctx, output, nonce);
+        aes_setkey(&ctx, k_ctr, raw_len/2);
+        aes_encrypt(&ctx, output, nonce);
 
         for (i = 0; i < CCA_STRENGTH; i++)
         {
@@ -149,16 +150,16 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
             mac[i] = mac[i] ^ buf[i];
         }
 
-        aes_setkey(ctx, k_mac_b, CCA_STRENGTH);
-        aes_encrypt(ctx, mac, mac);
+        aes_setkey(&ctx, k_mac_b, CCA_STRENGTH);
+        aes_encrypt(&ctx, mac, mac);
 
         write_chunk(fdctxt, buf, CCA_STRENGTH);
     }
 
     /* Finish up computing the AES-CBC-MAC and write the resulting
      * 16-byte MAC after the last chunk of the AES-CTR ciphertext */
-    aes_setkey(ctx, k_mac_e, CCA_STRENGTH);
-    aes_encrypt(ctx, mac, mac);
+    aes_setkey(&ctx, k_mac_e, CCA_STRENGTH);
+    aes_encrypt(&ctx, mac, mac);
 
     write_chunk(fdctxt, mac, CCA_STRENGTH);
 
