@@ -56,7 +56,7 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
 
     /* Create plaintext file
      * may be confidential info, so permission is 0600 */
-    if ((fdptxt = open(ptxt_fname, O_WRONLY|O_TRUNC|O_CREAT, 0600)) == -1)
+    if ((fdptxt = open(ptxt_fname, O_TRUNC|O_CREAT, 0600)) == -1)
     {
         perror(getprogname());
 
