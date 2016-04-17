@@ -155,7 +155,8 @@ void encrypt_file(const char *ctxt_fname, void *raw_sk, size_t raw_len, int fin)
 
         for (i = 0; i < CCA_STRENGTH; i++)
         {
-            buf[i] = buf[i] ^ output[i];
+            if (i < n)
+                buf[i] = buf[i] ^ output[i];
             /* Compute the AES-CBC-MAC while you go */
             mac[i] = mac[i] ^ buf[i];
         }

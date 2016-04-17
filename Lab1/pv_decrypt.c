@@ -56,7 +56,7 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
 
     /* Create plaintext file
      * may be confidential info, so permission is 0600 */
-    if ((fdptxt = open(ptxt_fname, O_TRUNC|O_CREAT, 0600)) == -1)
+    if ((fdptxt = open(ptxt_fname, O_RDWR|O_TRUNC|O_CREAT, 0600)) == -1)
     {
         perror(getprogname());
 
@@ -142,7 +142,7 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
              * let's shift the remaining aes_blocklen + 1 bytes by aes_blocklen
              * bytes
              */
-            if ((n = lseek(fin, (CCA_STRENGTH + 1) * -1, SEEK_CUR)) != 0)
+            if ((n = lseek(fin, (CCA_STRENGTH + 1) * -1, SEEK_CUR)) < 0)
             {
                 perror(getprogname());
 
@@ -186,15 +186,20 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
             for (; i < CCA_STRENGTH; i++)
                 mac[i] = mac[i] ^ 0;
 
+            if (n - CCA_STRENGTH > 0)
+            {
+                aes_setkey(&ctx, k_mac_b, CCA_STRENGTH);
+                aes_encrypt(&ctx, mac, mac);
+            }
             aes_setkey(&ctx, k_mac_e, CCA_STRENGTH);
             aes_encrypt(&ctx, mac, mac);
 
 
             /* compare the AES-CBC-MAC we computed with the value read from
                fin */
-            for (i = n - CCA_STRENGTH; i < n; i++)
+            for (i = 0; i < CCA_STRENGTH; i++)
             {
-                if (mac[i] != buf[i])
+                if (mac[i] != buf[(n - CCA_STRENGTH) + i])
                 {
                     printf("%s: decryption error\n", getprogname());
                     /* NB: if the AES-CBC-MAC value stored in the ciphertext
@@ -203,10 +208,7 @@ void decrypt_file(const char *ptxt_fname, void *raw_sk, size_t raw_len, int fin)
                      * with the ciphertext file, and you should not decrypt it.
                      * Otherwise, the CCA-security is gone.
                      */
-                    lseek(fdptxt, SEEK_SET, SEEK_CUR);
-                    bzero(buf, CCA_STRENGTH);
-                    for (; counter > 0; counter--);
-                        write_chunk(fdptxt, buf, CCA_STRENGTH);
+                    n = ftruncate(fdptxt, 0);
                     break;
                 }
             }
