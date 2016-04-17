@@ -1,0 +1,79 @@
+Script started on Sat Apr 16 22:32:50 2016
+$ make 
+gcc -g -O2 -ansi -Wall -Wsign-compare -Wchar-subscripts -Werror -I. -I/usr/include/ -I/home/nicolosi/devel/libdcrypt/include/ -c pv_keygen.c pv_misc.c
+make: Warning: File `pv_misc.o' has modification time 4 s in the future
+gcc -g -O2 -ansi -Wall -Wsign-compare -Wchar-subscripts -Werror -o pv_keygen pv_keygen.o pv_misc.o -L. -L/usr/lib/ -L/home/nicolosi/devel/libdcrypt/lib/ -ldcrypt  -lgmp
+gcc -g -O2 -ansi -Wall -Wsign-compare -Wchar-subscripts -Werror -I. -I/usr/include/ -I/home/nicolosi/devel/libdcrypt/include/ -c pv_encrypt.c pv_misc.c
+gcc -g -O2 -ansi -Wall -Wsign-compare -Wchar-subscripts -Werror -o pv_encrypt pv_encrypt.o pv_misc.o -L. -L/usr/lib/ -L/home/nicolosi/devel/libdcrypt/lib/ -ldcrypt  -lgmp
+gcc -g -O2 -ansi -Wall -Wsign-compare -Wchar-subscripts -Werror -I. -I/usr/include/ -I/home/nicolosi/devel/libdcrypt/include/ -c pv_decrypt.c pv_misc.c
+gcc -g -O2 -ansi -Wall -Wsign-compare -Wchar-subscripts -Werror -o pv_decrypt pv_decrypt.o pv_misc.o -L. -L/usr/lib/ -L/home/nicolosi/devel/libdcrypt/lib/ -ldcrypt  -lgmp
+make: warning:  Clock skew detected.  Your build may be incomplete.
+$ ./pv_keygen key.b64
+$ ./pv_keygen other.b64
+$ cat key.b64
+Ggc/EqzWgFNtW8nrPFk8BDXpuqoIw1QEBCDVkeANnz8=
+$ cat other.b64
+LBeY+ArIVK/xN2AhqeQQxDiJJi6mxQHFFHaO7ay5kSE=
+$ touch blank
+$ ./pv_encrypt key.b64 blank blank.enc
+$ stat -c %s blank
+0
+$ stat -c %s blank.enc
+32
+$ ./pv_decrypt key.b64 blank.enc blank.dec
+$ stat -c %s ba lank.dec
+0
+$ echo -n 1 "1" > one
+$ ./pv_encrypt key.b64 one one.enc
+$ stat -c $ %s one
+1
+$ stat -c %s one.enc
+33
+$ ./pv_decrypt key.b64 one.enc one.dec
+$ stat -c %s one.dec
+1
+$ cat one.dec
+1$ echo -n "YELLOWSUBMARINE" > ysub
+$ ./pv_encrypt key.b64 ysub ysub.enc
+$ stat -c %s ysub
+15
+$ stat -c %s ysub.enc
+47
+$ ./pb_  v_decrypt key.b64 ysub.d enc ysub.dec
+$ cat ysub.dec
+YELLOWSUBMARINE$ stat -c %s us  ysub.dec
+15
+$ echo "yellowsubmarien  ne" > ysub
+$ stat -c %s ysub
+16
+$ cat     ./pv_encrypt key.b64 ysub ysub.enc
+$ ./pv_decrypt key.b64 ysub.enc ysub.dec
+$ e cat u ysub.dec
+yellowsubmarine
+$ stat 0 -c %s s ysub.enc
+48
+$ stat -c %s ysub.dec
+16
+$ ./pv_enc	rypt key.b64 Makefile Makefile.enc
+$ stat -c %s Mae kefile
+2052
+$ stat -c %s MAke   akefile.enc
+2084
+$ ./pv_decrypt key.b64 Makefile Makefile         .enc Makefile.dec
+$ stat -c %s Makefile.dec
+2052
+$ ./pv_decrypt other.b64 Makefile.enc Makefile.bad-dec
+./pv_decrypt: decryption error
+$ stat -c %s Makefile.bad-dec
+0
+$ ./pv_encrypt key.b64       other.b64 pv_keygen pv_keygn en.enc
+$ ./  stat -c %s pv_keygen
+89292
+$ stat -c %s pv_keygen.enc
+89324
+$ ./pv_decrypt other.b64 pv_keygen.enc pg_  v_keygen.dec
+$ stat -c %s pg v_keygen.dec
+89292
+$ 
+
+Script done on Sat Apr 16 22:47:45 2016
