@@ -1,3 +1,9 @@
+/* Bradford Smith (bsmith8)
+ * CS 579 Lab 2 skgu.h
+ * 04/17/2016
+ * "I pledge my honor that I have abided by the Stevens Honor System."
+ */
+
 #ifndef _SKGU_H_
 #define _SKGU_H_
 
@@ -12,13 +18,13 @@
 #define ELGAMAL_STR "Elgamal-1"
 
 struct cert {
-  char *version;
-  dckey *issuer;
-  char *identity;
-  dckey *public_key;
-  time_t day_issued;
-  time_t day_expires;
-  char *sig;
+    char *version;
+    dckey *issuer;
+    char *identity;
+    dckey *public_key;
+    time_t day_issued;
+    time_t day_expires;
+    char *sig;
 };
 typedef struct cert cert;
 
@@ -38,7 +44,7 @@ void check_n_free_key(dckey **k);
 cert *pki_check(char *cert_file, char *pub_file, char *id);
 /* memory for pointers is allocated, so arguments can be freed on return */
 cert *cert_init (const dckey *is, const char *id, const dckey *pk,
-                 unsigned int ndays);
+        unsigned int ndays);
 cert *cert_dup (const cert *c);
 char *cert_export (const cert *c, int with_sig);
 int month_to_num (const char month[]);
@@ -47,7 +53,7 @@ time_t parse_date (const char **a);
 void cert_clr (cert *c);
 cert *cert_import (const char *asc);
 int cert_sign_n_write (const dckey *ca, const char *id, const dckey *pk,
-                       unsigned int ndays, const char *cert_file);
+        unsigned int ndays, const char *cert_file);
 cert *cert_read (const char *cert_file);
 int cert_verify (const cert *cert);
 

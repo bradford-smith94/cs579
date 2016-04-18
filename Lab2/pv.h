@@ -1,3 +1,9 @@
+/* Bradford Smith (bsmith8)
+ * CS 579 Lab 2 pv.h
+ * 04/17/2016
+ * "I pledge my honor that I have abided by the Stevens Honor System."
+ */
+
 #ifndef _PV_H_
 #define _PV_H_
 
