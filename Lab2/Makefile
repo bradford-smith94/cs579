@@ -77,6 +77,7 @@ clean:
 # full clean
 fclean: clean
 	-$(RM) -r .pki
+	-$(RM) *.b64
 	-$(RM) *.cert
 	-$(RM) *.priv
 	-$(RM) *.pub

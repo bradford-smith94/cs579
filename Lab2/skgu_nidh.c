@@ -89,8 +89,16 @@ void nidh(dckey *priv, dckey *pub, char *priv_id, char *pub_id, char *label)
 {
     rawpub rpub;
     rawpriv rpriv;
+    mpz_t sec; /* secret */
+    mpz_t comp_sec; /* computed secret */
+    int outfd;
+    char* outname;
+    int label_len;
+    int id_len;
+    int n;
+    char* buf = "it works\n";
 
-    /* YOUR VARS HERE */
+    /* TODO: YOUR VARS HERE */
 
     /* step 0: check that the private and public keys are compatible,
        i.e., they use the same group parameters */
@@ -125,7 +133,10 @@ void nidh(dckey *priv, dckey *pub, char *priv_id, char *pub_id, char *label)
            the libdcrypt source directory for sample usage
            */
 
-        /* YOUR CODE HERE */
+        mpz_init(sec);
+        mpz_init(comp_sec);
+
+        mpz_powm(comp_sec, rpub.g, sec, rpub.p);
 
         /* step 1b: order the IDs lexicographically */
         char *fst_id = NULL, *snd_id = NULL;
@@ -143,18 +154,50 @@ void nidh(dckey *priv, dckey *pub, char *priv_id, char *pub_id, char *label)
 
         /* step 1c: hash DH secret and ordered id pair into a master key */
 
-        /* YOUR CODE HERE */
+        /* TODO: YOUR CODE HERE */
 
         /* step 2: derive the shared key from the label and the master key */
 
-        /* YOUR CODE HERE */
+        /* TODO: YOUR CODE HERE */
 
         /* step 3: armor the shared key and write it to file.
            Filename should be of the form <label>-<priv_id>.b64 */
 
-        /* YOUR CODE HERE */
+        label_len = strlen(label);
+        id_len = strlen(priv_id);
+        if ((outname = (char*)malloc((label_len + id_len + 6)*sizeof(char))) == NULL)
+        {
+            perror(getprogname());
 
-        /* DELETE FOLLOWING LINES WHEN YOU ARE DONE */
+            exit(-1);
+        }
+
+        strcat(outname, label);
+        strcat(outname, "-");
+        strcat(outname, priv_id);
+        strcat(outname, ".b64");
+
+        if ((outfd = open(outname, O_WRONLY|O_TRUNC|O_CREAT, 0644)) == -1)
+        {
+            perror(getprogname());
+
+            exit(-1);
+        }
+
+        /* TODO: update buf to be the armored shared key */
+        if ((n = write(outfd, buf, strlen(buf))) == -1)
+        {
+            perror(getprogname());
+
+            exit(-1);
+        }
+
+        mpz_clear(sec);
+        mpz_clear(comp_sec);
+        free(outname);
+        close(outfd);
+
+        /* TODO: DELETE FOLLOWING LINES WHEN YOU ARE DONE */
 
         printf("NOT YET IMPLEMENTED.\n");
         printf("priv:\n%s\n", dcexport_priv(priv));
@@ -164,7 +207,6 @@ void nidh(dckey *priv, dckey *pub, char *priv_id, char *pub_id, char *label)
         printf("fst_id: %s\n", fst_id);
         printf("snd_id: %s\n", snd_id);
         printf("label: %s\n", label);
-        exit(-1);
     }
 }
 
