@@ -1,2 +1,7 @@
+Lab2/.pki
+Lab2/*.cert
+Lab2/*.priv
+Lab2/*.pub
+
 *.o
 *.tar.gz

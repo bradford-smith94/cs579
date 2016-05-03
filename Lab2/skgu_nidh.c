@@ -1,6 +1,6 @@
 /* Bradford Smith (bsmith8)
  * CS 579 Lab 2 skgu_nidh.c
- * 04/17/2016
+ * 05/03/2016
  * "I pledge my honor that I have abided by the Stevens Honor System."
  */
 

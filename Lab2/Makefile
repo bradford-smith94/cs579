@@ -1,6 +1,6 @@
 # Bradford Smith (bsmith8)
 # Makefile for CS 579 Lab 2
-# 04/17/2016
+# 05/03/2016
 # "I pledge my honor that I have abided by the Stevens Honor System."
 ################################################################################
 
@@ -59,6 +59,15 @@ skgu_nidh.o : skgu_nidh.c skgu.h pv.h
 skgu_nidh : skgu_nidh.o skgu_cert.o skgu_misc.o pv_misc.o
 	$(CC) $(DEBUG) $(WFLAGS) -o $@ $^ $(ALLLIBS) $(ALLINCLLIBS)
 
+test: re
+	./$(PKI) init
+	./$(PKI) cert -g alice.priv alice.pub alice
+	./$(PKI) cert -g bob.priv bob.pub bob
+	./$(NIDH) alice.priv alice.cert alice bob.pub bob.cert bob example
+	./$(NIDH) bob.priv bob.cert bob alice.pub alice.cert alice example
+	diff example-alice.b64 example-bob.b64
+
+
 clean:
 	-$(RM) *.o
 	-$(RM) *~
@@ -67,6 +76,10 @@ clean:
 
 # full clean
 fclean: clean
+	-$(RM) -r .pki
+	-$(RM) *.cert
+	-$(RM) *.priv
+	-$(RM) *.pub
 	-$(RM) $(PKI)
 	-$(RM) $(NIDH)
 
