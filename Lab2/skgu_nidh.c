@@ -90,12 +90,13 @@ void nidh(dckey *priv, dckey *pub, char *priv_id, char *pub_id, char *label)
     rawpub rpub;
     rawpriv rpriv;
     mpz_t sec; /* secret */
-    mpz_t comp_sec; /* computed secret */
+    char* hexsec;
     int outfd;
-    char* outname;
-    int label_len;
-    int id_len;
     int n;
+    char* outname;
+    int name_len;
+    int hash_len;
+    char* hash;
     char* buf = "it works\n";
 
     /* TODO: YOUR VARS HERE */
@@ -134,9 +135,9 @@ void nidh(dckey *priv, dckey *pub, char *priv_id, char *pub_id, char *label)
            */
 
         mpz_init(sec);
-        mpz_init(comp_sec);
 
-        mpz_powm(comp_sec, rpub.g, sec, rpub.p);
+        /* secret = y^x mod p */
+        mpz_powm(sec, rpub.y, rpriv.x, rpriv.p);
 
         /* step 1b: order the IDs lexicographically */
         char *fst_id = NULL, *snd_id = NULL;
@@ -154,7 +155,25 @@ void nidh(dckey *priv, dckey *pub, char *priv_id, char *pub_id, char *label)
 
         /* step 1c: hash DH secret and ordered id pair into a master key */
 
-        /* TODO: YOUR CODE HERE */
+        hexsec = NULL;
+        if (cat_mpz(&hexsec, sec) < 0)
+        {
+            perror(getprogname());
+
+            exit(-1);
+        }
+
+        hash_len = strlen(hexsec) + strlen(fst_id) + strlen(snd_id);
+        hash = (char*)malloc(hash_len * sizeof(char));
+
+        /* make sure hash buffer is empty */
+        bzero(hash, hash_len * sizeof(char));
+
+        strcat(hash, hexsec);
+        strcat(hash, fst_id);
+        strcat(hash, snd_id);
+
+        /* TODO: actually hash it */
 
         /* step 2: derive the shared key from the label and the master key */
 
@@ -163,14 +182,19 @@ void nidh(dckey *priv, dckey *pub, char *priv_id, char *pub_id, char *label)
         /* step 3: armor the shared key and write it to file.
            Filename should be of the form <label>-<priv_id>.b64 */
 
-        label_len = strlen(label);
-        id_len = strlen(priv_id);
-        if ((outname = (char*)malloc((label_len + id_len + 6)*sizeof(char))) == NULL)
+        name_len = strlen(label) + strlen(priv_id);
+        if ((outname = (char*)malloc((name_len + 6)*sizeof(char))) == NULL)
         {
             perror(getprogname());
 
+            mpz_clear(sec);
+            free(hexsec);
+            free(hash);
             exit(-1);
         }
+
+        /* make sure buffer is empty before starting */
+        bzero(outname, (name_len + 6)*sizeof(char));
 
         strcat(outname, label);
         strcat(outname, "-");
@@ -181,6 +205,9 @@ void nidh(dckey *priv, dckey *pub, char *priv_id, char *pub_id, char *label)
         {
             perror(getprogname());
 
+            mpz_clear(sec);
+            free(hexsec);
+            free(hash);
             exit(-1);
         }
 
@@ -189,11 +216,17 @@ void nidh(dckey *priv, dckey *pub, char *priv_id, char *pub_id, char *label)
         {
             perror(getprogname());
 
+            mpz_clear(sec);
+            free(hexsec);
+            free(hash);
+            free(outname);
             exit(-1);
         }
 
+        /* clean up */
         mpz_clear(sec);
-        mpz_clear(comp_sec);
+        free(hexsec);
+        free(hash);
         free(outname);
         close(outfd);
 
