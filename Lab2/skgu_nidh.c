@@ -90,16 +90,21 @@ void nidh(dckey *priv, dckey *pub, char *priv_id, char *pub_id, char *label)
     rawpub rpub;
     rawpriv rpriv;
     mpz_t sec; /* secret */
-    char* hexsec;
-    int outfd;
-    int n;
+    char* hexsec; /* secret in hex */
+    int outfd; /* output file descriptor */
     char* outname;
     int name_len;
     int hash_len;
+    char* key_km;
+    char* key_ks0;
+    char* key_ks1;
+    char* input_ks0;
+    char* input_ks1;
+    char* key_ks;
+    char* aes = "AES-CTR";
+    char* cbc = "CBC-MAC";
     char* hash;
-    char* buf = "it works\n";
-
-    /* TODO: YOUR VARS HERE */
+    char* buf;
 
     /* step 0: check that the private and public keys are compatible,
        i.e., they use the same group parameters */
@@ -163,21 +168,121 @@ void nidh(dckey *priv, dckey *pub, char *priv_id, char *pub_id, char *label)
             exit(-1);
         }
 
-        hash_len = strlen(hexsec) + strlen(fst_id) + strlen(snd_id);
+        hash_len = strlen(hexsec) + strlen(fst_id) + strlen(snd_id) + 1;
         hash = (char*)malloc(hash_len * sizeof(char));
 
         /* make sure hash buffer is empty */
         bzero(hash, hash_len * sizeof(char));
 
+        /* create the data to hash */
         strcat(hash, hexsec);
         strcat(hash, fst_id);
         strcat(hash, snd_id);
 
-        /* TODO: actually hash it */
+        /* actually hash it */
+        key_km = (char*)malloc(20*sizeof(char));
+        bzero(key_km, 20 * sizeof(char));
+        sha1_hash(key_km, hash, hash_len);
 
         /* step 2: derive the shared key from the label and the master key */
+        /* shared key 'key_ks' is according to:
+         *      key_km = sha1(dh(alice.pub, bob.pub) || fst_id || snd_id)
+         *      key_ks0 = hmac_sha1(km, label || "AES-CTR")
+         *      key_ks1 = hmac_sha1(km, label || "CBC-MAC")
+         *      key_ks = first 16 bytes of key_ks0 || first 16 bytes of key_ks1
+         */
 
-        /* TODO: YOUR CODE HERE */
+        if ((input_ks0 = (char*)malloc((strlen(label) + 8)*sizeof(char))) == NULL)
+        {
+            perror(getprogname());
+
+            mpz_clear(sec);
+            free(hexsec);
+            free(hash);
+            free(key_km);
+            exit(-1);
+        }
+
+        /* zero input_ks0 */
+        bzero(input_ks0, (strlen(label) + 8)*sizeof(char));
+
+        strcat(input_ks0, label);
+        strcat(input_ks0, aes);
+
+        if ((key_ks0 = (char*)malloc(21*sizeof(char))) == NULL)
+        {
+            perror(getprogname());
+
+            mpz_clear(sec);
+            free(hexsec);
+            free(hash);
+            free(key_km);
+            free(input_ks0);
+            exit(-1);
+        }
+
+        bzero(key_ks0, 21*sizeof(char));
+
+        /* hmac key_ks0 */
+        hmac_sha1(key_km, 20, key_ks0, input_ks0, strlen(label) + 7);
+
+        if ((input_ks1 = (char*)malloc((strlen(label) + 8)*sizeof(char))) == NULL)
+        {
+            perror(getprogname());
+
+            mpz_clear(sec);
+            free(hexsec);
+            free(hash);
+            free(key_km);
+            free(input_ks0);
+            free(key_ks0);
+            exit(-1);
+        }
+
+        /* zero input_ks1 */
+        bzero(input_ks1, (strlen(label) + 8)*sizeof(char));
+
+        strcat(input_ks1, label);
+        strcat(input_ks1, cbc);
+
+        if ((key_ks1 = (char*)malloc(21*sizeof(char))) == NULL)
+        {
+            perror(getprogname());
+
+            mpz_clear(sec);
+            free(hexsec);
+            free(hash);
+            free(key_km);
+            free(input_ks0);
+            free(key_ks0);
+            free(input_ks0);
+            exit(-1);
+        }
+
+        bzero(key_ks1, 21*sizeof(char));
+
+        /* hmac key_ks1 */
+        hmac_sha1(key_km, 20, key_ks1, input_ks1, strlen(label) + 7);
+
+        if ((key_ks = (char*)malloc(33*sizeof(char))) == NULL)
+        {
+            perror(getprogname());
+
+            mpz_clear(sec);
+            free(hexsec);
+            free(hash);
+            free(key_km);
+            free(input_ks0);
+            free(key_ks0);
+            free(input_ks0);
+            free(key_ks1);
+            exit(-1);
+        }
+
+        bzero(key_ks, 33*sizeof(char));
+
+        strncat(key_ks, key_ks0, 16);
+        strncat(key_ks, key_ks1, 16);
 
         /* step 3: armor the shared key and write it to file.
            Filename should be of the form <label>-<priv_id>.b64 */
@@ -190,12 +295,19 @@ void nidh(dckey *priv, dckey *pub, char *priv_id, char *pub_id, char *label)
             mpz_clear(sec);
             free(hexsec);
             free(hash);
+            free(key_km);
+            free(input_ks0);
+            free(key_ks0);
+            free(input_ks1);
+            free(key_ks1);
+            free(key_ks);
             exit(-1);
         }
 
         /* make sure buffer is empty before starting */
         bzero(outname, (name_len + 6)*sizeof(char));
 
+        /* create the file name in 'outname' */
         strcat(outname, label);
         strcat(outname, "-");
         strcat(outname, priv_id);
@@ -208,17 +320,30 @@ void nidh(dckey *priv, dckey *pub, char *priv_id, char *pub_id, char *label)
             mpz_clear(sec);
             free(hexsec);
             free(hash);
+            free(key_km);
+            free(input_ks0);
+            free(key_ks0);
+            free(input_ks1);
+            free(key_ks1);
+            free(key_ks);
             exit(-1);
         }
 
-        /* TODO: update buf to be the armored shared key */
-        if ((n = write(outfd, buf, strlen(buf))) == -1)
+        /* armor the key_km and write it */
+        buf = armor64(key_ks, strlen(key_ks));
+        if (write(outfd, buf, strlen(buf)) == -1)
         {
             perror(getprogname());
 
             mpz_clear(sec);
             free(hexsec);
             free(hash);
+            free(key_km);
+            free(input_ks0);
+            free(key_ks0);
+            free(input_ks1);
+            free(key_ks1);
+            free(key_ks);
             free(outname);
             exit(-1);
         }
@@ -227,19 +352,14 @@ void nidh(dckey *priv, dckey *pub, char *priv_id, char *pub_id, char *label)
         mpz_clear(sec);
         free(hexsec);
         free(hash);
+        free(key_km);
+        free(input_ks0);
+        free(key_ks0);
+        free(input_ks1);
+        free(key_ks1);
+        free(key_ks);
         free(outname);
         close(outfd);
-
-        /* TODO: DELETE FOLLOWING LINES WHEN YOU ARE DONE */
-
-        printf("NOT YET IMPLEMENTED.\n");
-        printf("priv:\n%s\n", dcexport_priv(priv));
-        printf("pub:\n%s\n", dcexport_pub(pub));
-        printf("priv_id: %s\n", priv_id);
-        printf("pub_id: %s\n", pub_id);
-        printf("fst_id: %s\n", fst_id);
-        printf("snd_id: %s\n", snd_id);
-        printf("label: %s\n", label);
     }
 }
 
