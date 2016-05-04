@@ -1,0 +1,34 @@
+Script started on Tue May  3 21:46:23 2016
+$ make test
+rm -f *.o
+rm -f *~
+rm -f core
+rm -f *.core
+rm -f -r .pki
+rm -f *.b64
+rm -f *.cert
+rm -f *.priv
+rm -f *.pub
+rm -f skgu_pki
+rm -f skgu_nidh
+gcc -g -O2 -ansi -Wall -Wsign-compare -Wchar-subscripts -Werror -I. -I/usr/include/ -I/home/nicolosi/devel/libdcrypt/include/ -c skgu_pki.c
+gcc -g -O2 -ansi -Wall -Wsign-compare -Wchar-subscripts -Werror -I. -I/usr/include/ -I/home/nicolosi/devel/libdcrypt/include/ -c skgu_cert.c
+gcc -g -O2 -ansi -Wall -Wsign-compare -Wchar-subscripts -Werror -I. -I/usr/include/ -I/home/nicolosi/devel/libdcrypt/include/ -c skgu_misc.c
+gcc -g -O2 -ansi -Wall -Wsign-compare -Wchar-subscripts -Werror -I. -I/usr/include/ -I/home/nicolosi/devel/libdcrypt/include/ -c pv_misc.c
+gcc -g -O2 -ansi -Wall -Wsign-compare -Wchar-subscripts -Werror -o skgu_pki skgu_pki.o skgu_cert.o skgu_misc.o pv_misc.o -L. -L/usr/lib/ -L/home/nicolosi/devel/libdcrypt/lib/ -ldcrypt  -lgmp
+gcc -g -O2 -ansi -Wall -Wsign-compare -Wchar-subscripts -Werror -I. -I/usr/include/ -I/home/nicolosi/devel/libdcrypt/include/ -c skgu_nidh.c
+gcc -g -O2 -ansi -Wall -Wsign-compare -Wchar-subscripts -Werror -o skgu_nidh skgu_nidh.o skgu_cert.o skgu_misc.o pv_misc.o -L. -L/usr/lib/ -L/home/nicolosi/devel/libdcrypt/lib/ -ldcrypt  -lgmp
+./skgu_pki init
+./skgu_pki cert -g alice.priv alice.pub alice
+./skgu_pki cert -g bob.priv bob.pub bob
+./skgu_nidh alice.priv alice.cert alice bob.pub bob.cert bob example
+Valid certificate
+./skgu_nidh bob.priv bob.cert bob alice.pub alice.cert alice example
+Valid certificate
+diff example-alice.b64 example-bob.b64
+$ cat example-alice.b64
+pKwfFT4KbMLKHOAJFOoTUpgo0Kbojozbx/hPd1yldoo=$ cat example. -bob.b64
+pKwfFT4KbMLKHOAJFOoTUpgo0Kbojozbx/hPd1yldoo=$ 
+$ 
+
+Script done on Tue May  3 21:48:14 2016
